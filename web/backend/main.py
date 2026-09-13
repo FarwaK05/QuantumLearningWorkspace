@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
 import httpx
 
-from models import (
+from web.backend.models import (
     SignupRequest,
     LoginRequest,
     Upload,
@@ -20,23 +20,23 @@ from models import (
     QuizResult,
     QuizResultRequest,
 )
-from database import (
+from web.backend.database import (
     get_users_collection,
     get_uploads_collection,
     get_chat_history_collection,
     get_quiz_results_collection,
 )
-from auth_utils import (
+from web.backend.auth_utils import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user_email,
     verify_internal_service_key,
 )
-from routes.chat import router as chat_router
-from routes.oauth import router as oauth_router
-from routes.quiz import router as quiz_router
-from routes.flashcards import router as flashcards_router
+from web.backend.routes.chat import router as chat_router
+from web.backend.routes.oauth import router as oauth_router
+from web.backend.routes.quiz import router as quiz_router
+from web.backend.routes.flashcards import router as flashcards_router
 
 logger = logging.getLogger("uvicorn")
 
