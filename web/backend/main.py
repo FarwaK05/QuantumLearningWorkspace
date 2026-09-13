@@ -148,7 +148,8 @@ async def process_file_ingestion(file_id: Any, document_id: str, filename: str, 
 
     update_fields: Dict[str, Any] = {
         "status": new_status,
-        "document_id": returned_document_id,
+        "document_id": document_id,
+        "vector_document_id": returned_document_id,
         "chunks_stored": chunks_stored,
         "processed_at": datetime.now(timezone.utc),
         "last_error": last_error,
@@ -357,7 +358,7 @@ async def delete_upload(
         raise HTTPException(status_code=404, detail="Upload not found")
 
     # 1. Purge vector embeddings from ChromaDB via Lambda Ingestion service
-    document_id = upload_doc.get("document_id") or str(upload_doc.get("_id"))
+    document_id = upload_doc.get("vector_document_id") or upload_doc.get("document_id") or str(upload_doc.get("_id"))
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
