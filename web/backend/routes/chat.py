@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
-from auth_utils import get_current_user_email, create_access_token
+from web.backend.auth_utils import get_current_user_email, create_access_token
 
 load_dotenv()
 

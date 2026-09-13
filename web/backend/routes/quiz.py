@@ -5,20 +5,20 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from auth_utils import get_current_user_email, create_access_token
+from web.backend.auth_utils import get_current_user_email, create_access_token
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Depends, Header
-from models import (
+from web.backend.models import (
     GenerateQuizProxyRequest,
     SubmitQuizRequest,
     QuizResult,
 )
-from database import (
+from web.backend.database import (
     get_quiz_sessions_collection,
     get_quiz_results_collection,
 )
-from auth_utils import get_current_user_email
+from web.backend.auth_utils import get_current_user_email
 
 logger = logging.getLogger("uvicorn")
 router = APIRouter()

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
-from database import get_users_collection
-from auth_utils import create_access_token
+from web.backend.database import get_users_collection
+from web.backend.auth_utils import create_access_token
 
 router = APIRouter()
 

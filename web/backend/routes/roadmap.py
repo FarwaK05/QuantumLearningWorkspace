@@ -3,9 +3,9 @@ import logging
 from typing import List, Dict, Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from auth_utils import get_current_user_email
+from web.backend.auth_utils import get_current_user_email
 import database
-from models import RoadmapNextStep, RoadmapNextStepsResponse
+from web.backend.models import RoadmapNextStep, RoadmapNextStepsResponse
 
 logger = logging.getLogger(__name__)
 
