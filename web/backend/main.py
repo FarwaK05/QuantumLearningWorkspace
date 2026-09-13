@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
 import httpx
 
-from models import (
+from web.backend.models import (
     SignupRequest,
     LoginRequest,
     Upload,
@@ -20,24 +20,24 @@ from models import (
     QuizResult,
     QuizResultRequest,
 )
-from database import (
+from web.backend.database import (
     get_users_collection,
     get_uploads_collection,
     get_chat_history_collection,
     get_quiz_results_collection,
 )
-from auth_utils import (
+from web.backend.auth_utils import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user_email,
     verify_internal_service_key,
 )
-from routes.chat import router as chat_router
-from routes.oauth import router as oauth_router
-from routes.quiz import router as quiz_router
-from routes.flashcards import router as flashcards_router
-from routes.roadmap import router as roadmap_router
+from web.backend.routes.chat import router as chat_router
+from web.backend.routes.oauth import router as oauth_router
+from web.backend.routes.quiz import router as quiz_router
+from web.backend.routes.flashcards import router as flashcards_router
+from web.backend.routes.roadmap import router as roadmap_router
 
 logger = logging.getLogger("uvicorn")
 
@@ -100,13 +100,13 @@ async def process_file_ingestion(file_id: Any, document_id: str, filename: str, 
             with open(file_path, "rb") as f:
                 file_bytes = f.read()
 
-            async with httpx.AsyncClient(timeout=15) as client:
-                internal_token = create_access_token(email=user_id)
-                response = await client.post(
-                    f"{INGESTION_SERVICE_URL.rstrip('/')}/ingest/pdf",
-                    files={"file": (filename, file_bytes, "application/pdf")},
-                    headers={"Authorization": f"Bearer {internal_token}"},
-                )
+            async with httpx.AsyncClient(timeout=120) as client: 
+                internal_token = create_access_token(email=user_id) 
+                response = await client.post( 
+                    f"{INGESTION_SERVICE_URL.rstrip('/')}/ingest/pdf", 
+                    files={"file": (filename, file_bytes, "application/pdf")}, 
+                    headers={"Authorization": f"Bearer {internal_token}"}, 
+    ) 
 
             if response.status_code == 200:
                 try:
@@ -126,11 +126,11 @@ async def process_file_ingestion(file_id: Any, document_id: str, filename: str, 
                 )
 
         except Exception as e:
-            logger.warning(
-                f"Ingestion error for {filename} ({document_id}): {e}"
-            )
+            error_details = f"{type(e).__name__}: {repr(e)}"
+            print(f"INGESTION_EXCEPTION: {error_details}", flush=True)
+            logger.error(f"INGESTION_EXCEPTION: {error_details}", flush=True)
             new_status = "Failed"
-            last_error = str(e)
+            last_error = error_details
     else:
         new_status = "Failed"
         last_error = "File not found on disk"

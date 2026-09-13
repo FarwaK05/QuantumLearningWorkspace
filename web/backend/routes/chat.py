@@ -44,7 +44,7 @@ async def ask(
     current_user_email: str = Depends(get_current_user_email),
 ):
     # Strictly derive user_id from the authenticated JWT session (email) only.
-    resolved_user_id = current_user_email
+    resolved_user_id = current_user_email.strip().lower()
 
     # Helper to check if user is asking for a general summary/overview
     q_lower = request.question.lower().strip()
