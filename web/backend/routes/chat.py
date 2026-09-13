@@ -58,7 +58,6 @@ async def ask(
     if any(p in q_lower for p in summary_phrases):
         if request.filename:
             outgoing_question = f"Provide a detailed summary and overview of the main topics, sections, and key details in the document '{request.filename}'."
-        else:
             outgoing_question = "Provide a detailed summary and overview of the main topics, sections, and key details in the uploaded study documents."
 
     # Build payload for chatbot service
@@ -85,12 +84,10 @@ async def ask(
     target_url = f"{CHATBOT_SERVICE_URL.rstrip('/')}/ask"
 
     # Forward the Bearer authorization header to chatbot service
-    auth_header = req.headers.get("authorization")
-    forward_headers = {"Content-Type": "application/json"}
-    if auth_header:
-        forward_headers["Authorization"] = auth_header
-    else:
-        forward_headers["Authorization"] = f"Bearer {create_access_token(resolved_user_id)}"
+    forward_headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {create_access_token(resolved_user_id)}",
+    }
 
     try:
         timeout = httpx.Timeout(
