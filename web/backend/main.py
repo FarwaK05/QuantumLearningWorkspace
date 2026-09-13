@@ -37,6 +37,9 @@ from web.backend.routes.chat import router as chat_router
 from web.backend.routes.oauth import router as oauth_router
 from web.backend.routes.quiz import router as quiz_router
 from web.backend.routes.flashcards import router as flashcards_router
+from web.backend.routes.roadmap import router as roadmap_router
+
+
 
 logger = logging.getLogger("uvicorn")
 
@@ -67,6 +70,7 @@ app.include_router(chat_router)
 app.include_router(oauth_router)
 app.include_router(quiz_router)
 app.include_router(flashcards_router)
+app.include_router(roadmap_router)
 
 
 UPLOAD_DIRECTORY = os.getenv(
