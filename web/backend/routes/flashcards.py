@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from groq import AsyncGroq
 from fastapi import APIRouter, HTTPException, Depends, Header, status
 from web.backend.auth_utils import get_current_user_email
-import database
+from web.backend import database
 from web.backend.models import (
     Flashcard,
     GenerateFlashcardsRequest,
