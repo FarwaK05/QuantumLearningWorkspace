@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from web.backend.auth_utils import get_current_user_email
-import database
+from web.backend import database
 from web.backend.models import RoadmapNextStep, RoadmapNextStepsResponse
 
 logger = logging.getLogger(__name__)
