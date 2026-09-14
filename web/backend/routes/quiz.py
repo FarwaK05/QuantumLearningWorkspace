@@ -33,6 +33,7 @@ async def generate_quiz_proxy(
     body: GenerateQuizProxyRequest,
     req: Request,
 ):
+    print("QUIZ_FUNCTION_ENTERED", flush=True)
     """
     Proxy quiz generation to the AI-ML quiz generator service.
     Persists questions and correct answers in the database (quiz_sessions),
