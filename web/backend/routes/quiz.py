@@ -44,7 +44,7 @@ async def generate_quiz_proxy(
     user_id = "anonymous"
     if auth_header.startswith("Bearer "):
         try:
-            from auth_utils import decode_access_token
+            from web.backend.auth_utils import decode_access_token
             token = auth_header.split(" ")[1]
             payload_token = decode_access_token(token)
             if payload_token and "sub" in payload_token:
