@@ -227,6 +227,7 @@ async def generate_quiz_proxy(
             ),
         )
     except Exception as e:
+        print(f"QUIZ_ERROR: {type(e).__name__}: {e}", flush=True)
         logger.error(f"Quiz service unexpected error: {e}")
         raise HTTPException(
             status_code=500,
