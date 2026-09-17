@@ -3,7 +3,7 @@ import uuid
 import shutil
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date
 from bson import ObjectId
 
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Depends, BackgroundTasks
@@ -17,6 +17,7 @@ from web.backend.models import (
     Upload,
     ChatMessage,
     ChangePasswordRequest,
+    UpdateProfileRequest,
     QuizResult,
     QuizResultRequest,
 )
@@ -25,6 +26,7 @@ from web.backend.database import (
     get_uploads_collection,
     get_chat_history_collection,
     get_quiz_results_collection,
+    get_flashcard_reviews_collection,
 )
 from web.backend.auth_utils import (
     hash_password,
@@ -215,10 +217,206 @@ async def get_my_profile(current_user_email: str = Depends(get_current_user_emai
     if isinstance(created_at, datetime):
         created_at = created_at.strftime("%B %d, %Y")
 
+    fallback_name = user["email"].split("@")[0].capitalize()
     return {
         "email": user["email"],
+        "name": user.get("name") or user.get("username") or fallback_name,
+        "username": user.get("username") or user["email"].split("@")[0],
         "created_at": str(created_at),
         "document_count": upload_count,
+    }
+
+
+@app.post("/update-profile")
+@app.put("/me")
+async def update_profile(
+    request: UpdateProfileRequest,
+    current_user_email: str = Depends(get_current_user_email),
+):
+    users = get_users_collection()
+    email_clean = current_user_email.strip().lower()
+
+    update_fields: Dict[str, Any] = {}
+    if request.name is not None and request.name.strip():
+        update_fields["name"] = request.name.strip()
+    if request.username is not None and request.username.strip():
+        clean_user = request.username.strip().lower()
+        # Check if username is taken by someone else
+        existing = await users.find_one({"username": clean_user, "email": {"$ne": email_clean}})
+        if existing:
+            raise HTTPException(status_code=400, detail="This username is already taken. Please choose another.")
+        update_fields["username"] = clean_user
+
+    if update_fields:
+        await users.update_one({"email": email_clean}, {"$set": update_fields})
+
+    updated_user = await users.find_one({"email": email_clean})
+    saved_name = updated_user.get("name") or updated_user.get("username") or email_clean.split("@")[0].capitalize()
+
+    return {
+        "message": "Profile updated successfully.",
+        "name": saved_name,
+        "username": updated_user.get("username") or email_clean.split("@")[0],
+    }
+
+
+@app.get("/analytics/study-pulse")
+async def get_study_pulse(current_user_email: str = Depends(get_current_user_email)):
+    email_clean = current_user_email.strip().lower()
+    reviews_col = get_flashcard_reviews_collection()
+    quiz_col = get_quiz_results_collection()
+    uploads_col = get_uploads_collection()
+
+    now_utc = datetime.now(timezone.utc)
+    today_date = now_utc.date()
+
+    # 1. Collect all distinct activity dates
+    activity_dates = {today_date}  # Today is active since user is logged in
+
+    # Flashcard reviews dates
+    async for r in reviews_col.find({"user_id": email_clean}, {"date_reviewed": 1, "topic": 1, "status": 1}):
+        dt = r.get("date_reviewed")
+        if isinstance(dt, datetime):
+            activity_dates.add(dt.date())
+        elif isinstance(dt, str):
+            try:
+                activity_dates.add(datetime.fromisoformat(dt.replace("Z", "+00:00")).date())
+            except Exception:
+                pass
+
+    # Quiz results dates
+    async for q in quiz_col.find({"user_id": email_clean}, {"timestamp": 1, "created_at": 1, "topic": 1}):
+        dt = q.get("timestamp") or q.get("created_at")
+        if isinstance(dt, datetime):
+            activity_dates.add(dt.date())
+        elif isinstance(dt, str):
+            try:
+                activity_dates.add(datetime.fromisoformat(dt.replace("Z", "+00:00")).date())
+            except Exception:
+                pass
+
+    # Uploads dates
+    async for u in uploads_col.find({"user_id": email_clean}, {"upload_date": 1, "filename": 1}):
+        dt = u.get("upload_date")
+        if isinstance(dt, datetime):
+            activity_dates.add(dt.date())
+        elif isinstance(dt, str):
+            try:
+                activity_dates.add(datetime.fromisoformat(dt.replace("Z", "+00:00")).date())
+            except Exception:
+                pass
+
+    # 2. Compute Consecutive Day Streak
+    streak_count = 0
+    curr = today_date
+    while curr in activity_dates:
+        streak_count += 1
+        curr = curr - timedelta(days=1)
+
+    streak_days = max(streak_count, 1)
+
+    # 3. Today's Milestones (Daily Goal)
+    m1_login = True  # Milestone 1: Daily login/active session
+    m2_flashcards = False  # Milestone 2: Studied flashcards today
+    m3_quiz = False  # Milestone 3: Took a quiz today
+    m4_extra = False  # Milestone 4: Uploaded file or completed >= 3 items today
+
+    today_start = datetime.combine(today_date, datetime.min.time(), tzinfo=timezone.utc)
+
+    today_reviews = await reviews_col.count_documents({
+        "user_id": email_clean,
+        "date_reviewed": {"$gte": today_start},
+    })
+    if today_reviews > 0:
+        m2_flashcards = True
+        if today_reviews >= 3:
+            m4_extra = True
+
+    today_quizzes = await quiz_col.count_documents({
+        "user_id": email_clean,
+        "timestamp": {"$gte": today_start},
+    })
+    if today_quizzes > 0:
+        m3_quiz = True
+
+    today_uploads = await uploads_col.count_documents({
+        "user_id": email_clean,
+        "upload_date": {"$gte": today_start},
+    })
+    if today_uploads > 0:
+        m4_extra = True
+
+    milestones_done = sum([1 if m else 0 for m in [m1_login, m2_flashcards, m3_quiz, m4_extra]])
+    goal_percent = int((milestones_done / 4) * 100)
+
+    # 4. Combined Mastery Pulse Stats (Flashcards + Quizzes)
+    flashcard_known = await reviews_col.count_documents({"user_id": email_clean, "status": "known"})
+    flashcard_learning = await reviews_col.count_documents({"user_id": email_clean, "status": "still_learning"})
+
+    quiz_correct = await quiz_col.count_documents({"user_id": email_clean, "is_correct": True})
+    quiz_incorrect = await quiz_col.count_documents({"user_id": email_clean, "is_correct": False})
+
+    total_mastered = flashcard_known + quiz_correct
+    total_in_review = flashcard_learning + quiz_incorrect
+
+    # Identify distinct weak topics across both flashcards and quizzes
+    topic_scores: Dict[str, Dict[str, int]] = {}
+    async for r in reviews_col.find({"user_id": email_clean}, {"topic": 1, "status": 1}):
+        t = r.get("topic") or "General"
+        if t not in topic_scores:
+            topic_scores[t] = {"correct": 0, "wrong": 0}
+        if r.get("status") == "known":
+            topic_scores[t]["correct"] += 1
+        elif r.get("status") == "still_learning":
+            topic_scores[t]["wrong"] += 1
+
+    async for q in quiz_col.find({"user_id": email_clean}, {"topic": 1, "is_correct": 1}):
+        t = q.get("topic") or "General"
+        if t not in topic_scores:
+            topic_scores[t] = {"correct": 0, "wrong": 0}
+        if q.get("is_correct") is True:
+            topic_scores[t]["correct"] += 1
+        elif q.get("is_correct") is False:
+            topic_scores[t]["wrong"] += 1
+
+    weak_count = 0
+    for t_name, scores in topic_scores.items():
+        tot = scores["correct"] + scores["wrong"]
+        if tot >= 2 and (scores["wrong"] > scores["correct"] or (scores["correct"] / tot) < 0.6):
+            weak_count += 1
+
+    # 5. Last Studied Activity: Check latest between flashcards and quiz
+    latest_review = await reviews_col.find_one({"user_id": email_clean}, sort=[("date_reviewed", -1)])
+    latest_quiz = await quiz_col.find_one({"user_id": email_clean}, sort=[("date_taken", -1), ("timestamp", -1)])
+
+    last_studied_payload = None
+    rev_time = latest_review.get("date_reviewed") if latest_review else None
+    quiz_time = (latest_quiz.get("date_taken") or latest_quiz.get("timestamp")) if latest_quiz else None
+
+    if rev_time and (not quiz_time or rev_time >= quiz_time):
+        last_studied_payload = {
+            "topic": latest_review.get("topic", "General"),
+            "type": "flashcards",
+            "sub_text": "Flashcards active recall",
+            "target_tab": "flashcards",
+        }
+    elif quiz_time:
+        last_studied_payload = {
+            "topic": latest_quiz.get("topic", "General"),
+            "type": "quiz",
+            "sub_text": "Practice Quiz assessment",
+            "target_tab": "quiz",
+        }
+
+    return {
+        "streak_days": streak_days,
+        "goal_percent": goal_percent,
+        "goals_completed": milestones_done,
+        "total_goals": 4,
+        "mastered": total_mastered,
+        "in_review": total_in_review,
+        "weak_topics": weak_count,
+        "last_studied": last_studied_payload,
     }
 
 

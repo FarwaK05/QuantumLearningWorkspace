@@ -31,6 +31,11 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=50)
+    username: Optional[str] = Field(None, min_length=2, max_length=30)
+
+
 class Upload(BaseModel):
     filename: str = Field(..., min_length=1)
     upload_date: datetime = Field(default_factory=utc_now)
