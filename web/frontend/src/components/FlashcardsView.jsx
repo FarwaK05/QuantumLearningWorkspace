@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
+import { Layers, AlertTriangle, CheckCircle2, RotateCcw, RotateCw, Lightbulb, Trophy } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import "./FlashcardsView.css";
@@ -254,7 +255,7 @@ export default function FlashcardsView() {
       {/* ─── Topic Setup Section ────────────────────────────────────────────── */}
       <section className="flashcards-setup-card">
         <div className="flashcards-setup-header">
-          <div className="flashcards-setup-icon">🎴</div>
+          <div className="flashcards-setup-icon"><Layers size={24} /></div>
           <div>
             <h2 className="flashcards-setup-title">Create Flashcards</h2>
             <p className="flashcards-setup-subtitle">
@@ -339,7 +340,7 @@ export default function FlashcardsView() {
 
           {errorMsg && (
             <div className="flashcards-error-banner">
-              ⚠️ {errorMsg}
+              <AlertTriangle size={16} style={{ verticalAlign: "middle", marginRight: "6px" }} />{errorMsg}
             </div>
           )}
         </form>
@@ -358,10 +359,10 @@ export default function FlashcardsView() {
             </div>
             <div className="flashcards-stats-pills">
               <span className="stat-pill known" title="Marked as Known">
-                ✓ Known: {knownCount}
+                <CheckCircle2 size={13} /> Known: {knownCount}
               </span>
               <span className="stat-pill learning" title="Marked as Still Learning">
-                ↺ Learning: {learningCount}
+                <RotateCcw size={13} /> Learning: {learningCount}
               </span>
             </div>
           </div>
@@ -389,7 +390,7 @@ export default function FlashcardsView() {
                   <span className="flashcard-type-badge">❓ Question</span>
                   {currentCardStatus && (
                     <span className={`flashcard-status-indicator ${currentCardStatus}`}>
-                      {currentCardStatus === "known" ? "✓ Marked Known" : "↺ Still Learning"}
+                      {currentCardStatus === "known" ? (<><CheckCircle2 size={13} /> Marked Known</>) : (<><RotateCcw size={13} /> Still Learning</>)}
                     </span>
                   )}
                 </div>
@@ -409,10 +410,10 @@ export default function FlashcardsView() {
               {/* Back Face: Answer */}
               <div className="flashcard-face flashcard-face-back">
                 <div className="flashcard-badge-row">
-                  <span className="flashcard-type-badge">💡 Answer & Explanation</span>
+                  <span className="flashcard-type-badge"><Lightbulb size={13} /> Answer &amp; Explanation</span>
                   {currentCardStatus && (
                     <span className={`flashcard-status-indicator ${currentCardStatus}`}>
-                      {currentCardStatus === "known" ? "✓ Marked Known" : "↺ Still Learning"}
+                      {currentCardStatus === "known" ? (<><CheckCircle2 size={13} /> Marked Known</>) : (<><RotateCcw size={13} /> Still Learning</>)}
                     </span>
                   )}
                 </div>
@@ -440,7 +441,7 @@ export default function FlashcardsView() {
               disabled={isSavingReview}
               title="Press 1 on keyboard"
             >
-              <span>↺</span> Still Learning
+              <RotateCcw size={15} /> Still Learning
             </button>
             <button
               type="button"
@@ -449,7 +450,7 @@ export default function FlashcardsView() {
               disabled={isSavingReview}
               title="Press 2 on keyboard"
             >
-              <span>✓</span> Known
+              <CheckCircle2 size={15} /> Known
             </button>
           </div>
 
@@ -478,7 +479,7 @@ export default function FlashcardsView() {
                 onClick={handleRestartDeck}
                 title="Restart deck from first card"
               >
-                🔄 Reset
+                <RotateCw size={14} /> Reset
               </button>
             </div>
             <button
@@ -496,7 +497,7 @@ export default function FlashcardsView() {
       {/* ─── Completed Deck Summary Screen ─────────────────────────────────── */}
       {isCompleted && (
         <section className="flashcards-summary-card">
-          <div className="summary-trophy-icon">🏆</div>
+          <div className="summary-trophy-icon"><Trophy size={32} /></div>
           <h3 className="summary-title">Deck Completed!</h3>
           <p className="summary-desc">
             You reviewed all {cards.length} flashcards for <strong>{currentTopic}</strong>.
@@ -525,7 +526,7 @@ export default function FlashcardsView() {
                 onClick={handleReviewWeakCards}
                 style={{ maxWidth: "240px" }}
               >
-                ↺ Practice {learningCount} Weak Cards
+                <RotateCcw size={15} /> Practice {learningCount} Weak Cards
               </button>
             )}
             <button
@@ -534,7 +535,7 @@ export default function FlashcardsView() {
               onClick={handleRestartDeck}
               style={{ maxWidth: "200px" }}
             >
-              🔄 Study Again
+              <RotateCw size={15} /> Study Again
             </button>
           </div>
         </section>

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
+import { FileText, MessageSquare, Layers, Target, BarChart3, Map, Network, Brain, RefreshCw, BookOpen, X, AlertTriangle, Globe, Clock, CheckCircle2, Search, Send, ChevronDown } from "lucide-react";
 import ProfileView from "./ProfileView.jsx";
 import QuizView from "./QuizView.jsx";
 import QuizResultsView from "./QuizResultsView.jsx";
@@ -25,20 +26,20 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
   const initial = userEmail ? userEmail[0].toUpperCase() : "U";
 
   const navItems = [
-    { id: "documents", icon: "📄", label: "Documents" },
-    { id: "chat", icon: "💬", label: "AI Chat" },
-    { id: "flashcards", icon: "🎴", label: "Flashcards" },
-    { id: "quiz", icon: "🎯", label: "Quiz" },
-    { id: "results", icon: "📊", label: "Results" },
-    { id: "roadmap", icon: "🗺️", label: "Study Roadmap" },
-    { id: "graph", icon: "🌐", label: "Knowledge Graph" },
+    { id: "documents", icon: FileText, label: "Documents" },
+    { id: "chat", icon: MessageSquare, label: "AI Chat" },
+    { id: "flashcards", icon: Layers, label: "Flashcards" },
+    { id: "quiz", icon: Target, label: "Quiz" },
+    { id: "results", icon: BarChart3, label: "Results" },
+    { id: "roadmap", icon: Map, label: "Study Roadmap" },
+    { id: "graph", icon: Network, label: "Knowledge Graph" },
   ];
 
   return (
     <aside className="sidebar-nav">
       {/* Logo */}
       <div className="sidebar-logo-area">
-        <span className="logo-icon">🧠</span>
+        <Brain className="logo-icon" size={26} strokeWidth={2.25} />
       </div>
 
       {/* Navigation Items */}
@@ -50,7 +51,7 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
             onClick={() => setActiveTab(item.id)}
             title={item.label}
           >
-            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-icon"><item.icon size={20} strokeWidth={2} /></span>
             <span className="nav-tooltip">{item.label}</span>
             {activeTab === item.id && (
               <span className="nav-indicator"></span>
@@ -389,9 +390,7 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
           <h3>Knowledge Library</h3>
           <div className="header-actions">
             <span className="file-count-badge">{files.length} file{files.length !== 1 ? "s" : ""}</span>
-            <button className="btn-refresh" onClick={() => fetchUploads(false)} title="Refresh">
-              🔄
-            </button>
+            <button className="btn-refresh" onClick={() => fetchUploads(false)} title="Refresh"><RefreshCw size={16} /></button>
           </div>
         </div>
 
@@ -408,8 +407,8 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
             onChange={setStatusFilter}
             options={[
               { value: "All", label: "All Status" },
-              { value: "Processing", label: "⏳ Processing" },
-              { value: "Ready", label: "✓ Ready" },
+              { value: "Processing", label: "Processing" },
+              { value: "Ready", label: "Ready" },
             ]}
           />
 
@@ -444,7 +443,7 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
 
         {!loading && !error && files.length === 0 && (
           <div className="empty-state">
-            <span className="empty-icon">📚</span>
+            <BookOpen className="empty-icon" size={44} strokeWidth={1.75} />
             <p className="empty-title">No documents yet - upload your first file to get started</p>
             <p className="empty-subtitle">Upload your first PDF to start studying with AI</p>
           </div>
@@ -476,7 +475,7 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
                   key={file.id}
                   className={`file-row ${isDeleting ? "deleting" : ""}`}
                 >
-                  <div className="file-icon-box">📄</div>
+                  <div className="file-icon-box"><FileText size={20} /></div>
                   <div className="file-info">
                     <span className="file-name-text" title={file.filename}>
                       {file.filename}
@@ -518,7 +517,7 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
                         : `Ask questions about ${file.filename}`
                     }
                   >
-                    💬 Ask AI
+                    <MessageSquare size={15} strokeWidth={2} /> Ask AI
                   </button>
 
                   <button
@@ -554,10 +553,10 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
               onClick={() => setFileToDelete(null)}
               title="Close"
             >
-              ✕
+              <X size={18} />
             </button>
             <div className="modal-icon-wrap">
-              <span className="modal-warning-icon">⚠️</span>
+              <AlertTriangle className="modal-warning-icon" size={34} strokeWidth={1.75} />
             </div>
             <h3 className="modal-title">Delete Document</h3>
             <p className="modal-desc">
@@ -738,7 +737,7 @@ function ScopeDropdown({ targetDocument, setTargetDocument, files }) {
         onClick={() => setIsOpen(!isOpen)}
       >
         <span className="scope-dropdown-label">{selectedLabel}</span>
-        <span className={`scope-dropdown-arrow ${isOpen ? "open" : ""}`}>▾</span>
+        <ChevronDown size={14} className={`scope-dropdown-arrow ${isOpen ? "open" : ""}`} />
       </button>
 
       {isOpen && (
@@ -751,7 +750,7 @@ function ScopeDropdown({ targetDocument, setTargetDocument, files }) {
             }}
           >
             <span className="scope-doc-name">All Documents</span>
-            <span className="scope-doc-badge">🌐 Global</span>
+            <span className="scope-doc-badge"><Globe size={12} /> Global</span>
           </div>
           {files.map((file) => {
             const isProcessing = (file.status || "").toLowerCase() === "processing";
@@ -771,7 +770,7 @@ function ScopeDropdown({ targetDocument, setTargetDocument, files }) {
               >
                 <span className="scope-doc-name">{file.filename}</span>
                 <span className="scope-doc-badge">
-                  {isProcessing ? "⏳ Processing" : "✓ Ready"}
+                  {isProcessing ? (<><Clock size={12} /> Processing</>) : (<><CheckCircle2 size={12} /> Ready</>)}
                 </span>
               </div>
             );
@@ -996,7 +995,7 @@ function ChatView({ targetDocument, setTargetDocument }) {
       {/* Chat Header Bar */}
       <div className="chat-header-bar">
         <div className="chat-doc-selector-container">
-          <span className="selector-icon">🎯 Scope:</span>
+          <span className="selector-icon"><Target size={14} /> Scope:</span>
           <ScopeDropdown
             targetDocument={targetDocument}
             setTargetDocument={setTargetDocument}
@@ -1008,7 +1007,7 @@ function ChatView({ targetDocument, setTargetDocument }) {
               onClick={() => setTargetDocument(null)}
               title="Clear active document filter"
             >
-              ✕ Clear Filter
+              <X size={14} /> Clear Filter
             </button>
           )}
         </div>
@@ -1073,7 +1072,7 @@ function ChatView({ targetDocument, setTargetDocument }) {
 
                 {msg.sources && msg.sources.length > 0 && !/^(hello|hi|hey)[!,.\s]/i.test(msg.content.trim()) && (
                   <div className="msg-sources">
-                    <span className="sources-title">🔍 Sources:</span>
+                    <span className="sources-title"><Search size={13} /> Sources:</span>
                     <div className="sources-list">
                       {msg.sources.map((src, i) => (
                         <span key={i} className="source-chip" title={src.chunk}>
@@ -1123,7 +1122,7 @@ function ChatView({ targetDocument, setTargetDocument }) {
           disabled={isLoading}
         />
         <button type="submit" className="btn-send-chat" disabled={!input.trim() || isLoading}>
-          ➤
+          <Send size={16} />
         </button>
       </form>
     </div>
