@@ -86,6 +86,8 @@ async def generate_quiz_proxy(
         "question_type": mapped_quiz_type,
         "difficulty": "medium",
     }
+    if body.document_id:
+        payload["document_id"] = body.document_id
 
     try:
         timeout = httpx.Timeout(

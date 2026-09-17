@@ -76,6 +76,7 @@ class GenerateQuizProxyRequest(BaseModel):
     topic: str = Field(..., min_length=1, description="Topic to generate the quiz from.")
     question_count: int = Field(default=5, ge=1, le=20, description="Number of questions (1-20).")
     quiz_type: str = Field(..., description="One of: mcq, true_false, fill_blank, short_answer.")
+    document_id: Optional[str] = Field(default=None, description="Optional document ID to scope quiz questions to this document.")
 
 
 class QuizSubmissionAnswer(BaseModel):
@@ -127,6 +128,13 @@ class GenerateFlashcardsRequest(BaseModel):
     num_cards: Optional[int] = Field(default=5, ge=1, le=20, description="Number of cards to generate (1-20)")
     difficulty: Optional[str] = Field(default="medium", description="Difficulty level (easy, medium, hard)")
     content: Optional[str] = Field(default=None, description="Optional raw text / notes to extract flashcards from")
+    document_id: Optional[str] = Field(default=None, description="Optional document ID to scope flashcards to this document")
+
+
+class GenerateDocRoadmapRequest(BaseModel):
+    document_id: Optional[str] = Field(default=None, description="Document ID to scope roadmap to")
+    filename: Optional[str] = Field(default=None, description="Filename of the document")
+    topic: Optional[str] = Field(default=None, description="Extracted clean topic name")
 
 
 class GenerateFlashcardsResponse(BaseModel):
@@ -134,6 +142,19 @@ class GenerateFlashcardsResponse(BaseModel):
     topic: str
     total_cards: int
     cards: List[Flashcard]
+
+
+class ExtractDocumentTopicsRequest(BaseModel):
+    document_id: str = Field(..., description="Document ID to analyze for topics")
+    filename: Optional[str] = Field(default=None, description="Filename of the document")
+
+
+class ExtractDocumentTopicsResponse(BaseModel):
+    success: bool = True
+    document_id: str
+    filename: Optional[str] = None
+    topics: List[str] = []
+    default_topic: str = "All Topics"
 
 
 class FlashcardReviewRequest(BaseModel):

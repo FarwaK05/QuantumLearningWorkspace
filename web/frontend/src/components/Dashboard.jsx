@@ -187,7 +187,13 @@ function TopBar({ activeTab, onNavigate }) {
   );
 }
 
-function DocumentsView({ onAskAboutDocument, onNavigate }) {
+function DocumentsView({
+  onAskAboutDocument,
+  onNavigate,
+  onLaunchQuiz,
+  onLaunchFlashcards,
+  onLaunchRoadmap,
+}) {
   const { token, handle401 } = useAuth();
   const { showToast } = useToast();
   const [files, setFiles] = useState([]);
@@ -201,13 +207,300 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
   const [uploadStatus, setUploadStatus] = useState("");
   const [previewId, setPreviewId] = useState(null);
 
+  // Per-document Action Loading and Error Tracking
+  const [actionLoading, setActionLoading] = useState({});
+  const [actionError, setActionError] = useState({});
+
+  // Flashcards Topic Selection Modal State
+  const [topicModalFile, setTopicModalFile] = useState(null);
+  const [topicModalList, setTopicModalList] = useState([]);
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [customTopicInput, setCustomTopicInput] = useState("");
+  const [cardCountChoice, setCardCountChoice] = useState(5);
+  const [difficultyChoice, setDifficultyChoice] = useState("medium");
+  const [isModalGenerating, setIsModalGenerating] = useState(false);
+
   // Search, Filter & Sort
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortOption, setSortOption] = useState("Newest");
 
-  
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+  const getDocCleanTopic = (file) => {
+    if (!file) return "Study Material";
+    const name = file.filename || "";
+    const withoutExt = name.replace(/\.[^/.]+$/, "");
+    return withoutExt.replace(/[_-]/g, " ").replace(/\s+/g, " ").trim() || "Study Material";
+  };
+
+  const clearActionError = (fileId) => {
+    setActionError((prev) => {
+      const next = { ...prev };
+      delete next[fileId];
+      return next;
+    });
+  };
+
+  const handleGenerateDocQuiz = async (file) => {
+    const fileId = file.id;
+    const topic = getDocCleanTopic(file);
+    const docId = file.document_id || file.id;
+
+    clearActionError(fileId);
+    setActionLoading((prev) => ({
+      ...prev,
+      [fileId]: { action: "quiz", message: `Generating your quiz from ${file.filename}...` },
+    }));
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/generate-quiz`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          topic: topic,
+          question_count: 5,
+          quiz_type: "mcq",
+          document_id: docId,
+        }),
+      });
+
+      if (handle401(res)) return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.message || "Failed to generate quiz");
+      }
+
+      const data = await res.json();
+      if (!data.success && !data.questions) {
+        throw new Error(data.message || "Quiz generation failed");
+      }
+
+      showToast(`Quiz generated from ${file.filename}!`, "success");
+      if (onLaunchQuiz) {
+        onLaunchQuiz({
+          quizId: data.quiz_id || "",
+          questions: data.questions || [],
+          topic: topic,
+          document_id: docId,
+          filename: file.filename,
+        });
+      } else if (onNavigate) {
+        onNavigate("quiz");
+      }
+    } catch (err) {
+      setActionError((prev) => ({
+        ...prev,
+        [fileId]: {
+          action: "quiz",
+          message: "Something went wrong — try again",
+          detail: err.message,
+        },
+      }));
+      showToast(`Quiz error: ${err.message || "Something went wrong — try again"}`, "error");
+    } finally {
+      setActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[fileId];
+        return next;
+      });
+    }
+  };
+
+  const handleOpenFlashcardTopics = async (file) => {
+    const fileId = file.id;
+    const docId = file.document_id || file.id;
+    const cleanTopic = getDocCleanTopic(file);
+
+    clearActionError(fileId);
+    setActionLoading((prev) => ({
+      ...prev,
+      [fileId]: { action: "flashcards", message: `Analyzing topics in ${file.filename}...` },
+    }));
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/flashcards/extract-document-topics`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          document_id: docId,
+          filename: file.filename,
+        }),
+      });
+
+      if (handle401(res)) return;
+      if (!res.ok) {
+        throw new Error("Could not analyze document topics");
+      }
+
+      const data = await res.json();
+      const topics = (data.topics && data.topics.length > 0) ? data.topics : [cleanTopic];
+      setTopicModalList(topics);
+      setSelectedTopic(topics[0] || cleanTopic);
+      setCustomTopicInput("");
+      setCardCountChoice(5);
+      setDifficultyChoice("medium");
+      setTopicModalFile(file);
+    } catch (err) {
+      // Fallback: provide structured default topics if extraction fails
+      const fallbackTopics = [
+        `Overview & Core Definitions`,
+        `Key Principles of ${cleanTopic}`,
+        `Practical Mechanisms & Applications`,
+        `Advanced Concepts & Review`,
+      ];
+      setTopicModalList(fallbackTopics);
+      setSelectedTopic(fallbackTopics[0]);
+      setCustomTopicInput("");
+      setCardCountChoice(5);
+      setDifficultyChoice("medium");
+      setTopicModalFile(file);
+    } finally {
+      setActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[fileId];
+        return next;
+      });
+    }
+  };
+
+  const handleConfirmGenerateFlashcards = async () => {
+    if (!topicModalFile) return;
+    const file = topicModalFile;
+    const fileId = file.id;
+    const docId = file.document_id || file.id;
+    const topicToUse = (customTopicInput.trim() || selectedTopic || getDocCleanTopic(file)).trim();
+
+    setIsModalGenerating(true);
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/generate-flashcards`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          topic: topicToUse,
+          num_cards: parseInt(cardCountChoice) || 5,
+          difficulty: difficultyChoice,
+          document_id: docId,
+        }),
+      });
+
+      if (handle401(res)) return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.message || "Failed to generate flashcards");
+      }
+
+      const data = await res.json();
+      if (!data.cards || data.cards.length === 0) {
+        throw new Error(data.detail || "No flashcards generated");
+      }
+
+      showToast(`Generated ${data.cards.length} flashcards for "${topicToUse}"!`, "success");
+      setTopicModalFile(null);
+
+      if (onLaunchFlashcards) {
+        onLaunchFlashcards({
+          cards: data.cards,
+          topic: topicToUse,
+          document_id: docId,
+          filename: file.filename,
+        });
+      } else if (onNavigate) {
+        onNavigate("flashcards");
+      }
+    } catch (err) {
+      showToast(`Flashcards error: ${err.message || "Something went wrong — try again"}`, "error");
+      setActionError((prev) => ({
+        ...prev,
+        [fileId]: {
+          action: "flashcards",
+          message: "Something went wrong — try again",
+          detail: err.message,
+        },
+      }));
+    } finally {
+      setIsModalGenerating(false);
+    }
+  };
+
+  const handleGenerateDocRoadmap = async (file) => {
+    const fileId = file.id;
+    const topic = getDocCleanTopic(file);
+    const docId = file.document_id || file.id;
+
+    clearActionError(fileId);
+    setActionLoading((prev) => ({
+      ...prev,
+      [fileId]: { action: "roadmap", message: `Generating your study roadmap from ${file.filename}...` },
+    }));
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/roadmap/generate-from-doc`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          document_id: docId,
+          filename: file.filename,
+          topic: topic,
+        }),
+      });
+
+      if (handle401(res)) return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.message || "Failed to generate roadmap");
+      }
+
+      const data = await res.json();
+      showToast(`Roadmap generated for ${file.filename}!`, "success");
+      if (onLaunchRoadmap) {
+        onLaunchRoadmap({
+          next_steps: data.next_steps || [],
+          subject: data.subject || `Study Roadmap: ${topic}`,
+          document_id: docId,
+          filename: file.filename,
+        });
+      } else if (onNavigate) {
+        onNavigate("roadmap");
+      }
+    } catch (err) {
+      setActionError((prev) => ({
+        ...prev,
+        [fileId]: {
+          action: "roadmap",
+          message: "Something went wrong — try again",
+          detail: err.message,
+        },
+      }));
+      showToast(`Roadmap error: ${err.message || "Something went wrong — try again"}`, "error");
+    } finally {
+      setActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[fileId];
+        return next;
+      });
+    }
+  };
+
+  const handleActionRetry = (file, action) => {
+    if (action === "quiz") handleGenerateDocQuiz(file);
+    else if (action === "flashcards") handleOpenFlashcardTopics(file);
+    else if (action === "roadmap") handleGenerateDocRoadmap(file);
+  };
+
 
   function fetchUploads(isSilent = false) {
     if (!isSilent) {
@@ -484,73 +777,170 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
                 return ext;
               };
 
+              const currentLoading = actionLoading[file.id];
+              const currentError = actionError[file.id];
+
               return (
                 <div
                   key={file.id}
                   className={`file-row ${isDeleting ? "deleting" : ""}`}
                 >
-                  <div className="file-icon-box">📄</div>
-                  <div className="file-info">
-                    <span className="file-name-text" title={file.filename}>
-                      {file.filename}
+                  <div className="file-row-main">
+                    <div className="file-icon-box">📄</div>
+                    <div className="file-info">
+                      <span className="file-name-text" title={file.filename}>
+                        {file.filename}
+                      </span>
+                      <span className="file-type-text">
+                        {getFileType(file.file_type, file.filename)}
+                      </span>
+                    </div>
+                    <span className="file-date-text">
+                      {file.upload_date
+                        ? new Date(file.upload_date).toLocaleDateString("en-US", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })
+                        : "Unknown"}
                     </span>
-                    <span className="file-type-text">
-                      {getFileType(file.file_type, file.filename)}
-                    </span>
+
+                    <div className={`status-pill ${isProcessing ? "status-processing" : "status-ready"}`}>
+                      <span className={`status-dot ${isProcessing ? "pulse-dot" : "solid-dot"}`}></span>
+                      {displayStatus}
+                    </div>
+
+                    <div className="file-row-tools">
+                      <button
+                        className="btn-preview-file"
+                        onClick={() => setPreviewId(file.id)}
+                        title="Preview document details"
+                      >
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                          <circle cx="12" cy="12" r="3" fill="currentColor" />
+                        </svg>
+                      </button>
+
+                      <button
+                        className="btn-delete-file"
+                        onClick={() => setFileToDelete(file)}
+                        disabled={isDeleting}
+                        title="Delete file"
+                      >
+                        {isDeleting ? (
+                          <span className="mini-spinner"></span>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#ef4444" }}>
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <span className="file-date-text">
-                    {file.upload_date
-                      ? new Date(file.upload_date).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
-                        })
-                      : "Unknown"}
-                  </span>
 
-                  <div className={`status-pill ${isProcessing ? "status-processing" : "status-ready"}`}>
-                    <span className={`status-dot ${isProcessing ? "pulse-dot" : "solid-dot"}`}></span>
-                    {displayStatus}
-                  </div>
-                  <button
-                    className="btn-preview-file"
-                    onClick={() => setPreviewId(file.id)}
-                    title="Preview document details"
-                  >
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-                      <circle cx="12" cy="12" r="3" fill="currentColor" />
-                    </svg>
-                  </button>
+                  {/* Document Actions Menu */}
+                  <div className="file-row-actions">
+                    <div className="doc-actions-cluster">
+                      <button
+                        className={`btn-doc-action btn-action-ask ${isProcessing ? "disabled" : ""}`}
+                        onClick={() => !isProcessing && onAskAboutDocument(file.filename)}
+                        disabled={isProcessing || !!currentLoading}
+                        title={isProcessing ? "File is processing" : `Ask questions about ${file.filename}`}
+                      >
+                        <span className="action-icon">💬</span>
+                        <span className="action-label">Ask AI</span>
+                      </button>
 
-                  <button
-                    className={`btn-ask-doc ${isProcessing ? "disabled" : ""}`}
-                    onClick={() => !isProcessing && onAskAboutDocument(file.filename)}
-                    disabled={isProcessing}
-                    title={
-                      isProcessing
-                        ? "File is currently processing and not yet searchable"
-                        : `Ask questions about ${file.filename}`
-                    }
-                  >
-                    💬 Ask AI
-                  </button>
+                      <button
+                        className={`btn-doc-action btn-action-quiz ${isProcessing ? "disabled" : ""}`}
+                        onClick={() => !isProcessing && handleGenerateDocQuiz(file)}
+                        disabled={isProcessing || !!currentLoading}
+                        title={`Generate Quiz from ${file.filename}`}
+                      >
+                        {currentLoading?.action === "quiz" ? (
+                          <>
+                            <span className="mini-action-spinner"></span>
+                            <span className="action-label">Generating Quiz...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="action-icon">🎯</span>
+                            <span className="action-label">Generate Quiz</span>
+                          </>
+                        )}
+                      </button>
 
-                  <button
-                    className="btn-delete-file"
-                    onClick={() => setFileToDelete(file)}
-                    disabled={isDeleting}
-                    title="Delete file"
-                  >
-                    {isDeleting ? (
-                      <span className="mini-spinner"></span>
-                    ) : (
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#ef4444" }}>
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <line x1="10" y1="11" x2="10" y2="17" />
-                        <line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
+                      <button
+                        className={`btn-doc-action btn-action-flashcards ${isProcessing ? "disabled" : ""}`}
+                        onClick={() => !isProcessing && handleOpenFlashcardTopics(file)}
+                        disabled={isProcessing || !!currentLoading}
+                        title={`Select topics & generate flashcards from ${file.filename}`}
+                      >
+                        {currentLoading?.action === "flashcards" ? (
+                          <>
+                            <span className="mini-action-spinner"></span>
+                            <span className="action-label">Analyzing Topics...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="action-icon">🎴</span>
+                            <span className="action-label">Generate Flashcards</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        className={`btn-doc-action btn-action-roadmap ${isProcessing ? "disabled" : ""}`}
+                        onClick={() => !isProcessing && handleGenerateDocRoadmap(file)}
+                        disabled={isProcessing || !!currentLoading}
+                        title={`Generate Study Roadmap from ${file.filename}`}
+                      >
+                        {currentLoading?.action === "roadmap" ? (
+                          <>
+                            <span className="mini-action-spinner"></span>
+                            <span className="action-label">Building Roadmap...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="action-icon">🗺️</span>
+                            <span className="action-label">Generate Study Roadmap</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {currentLoading && (
+                      <div className="doc-action-loading-banner">
+                        <span className="mini-action-spinner"></span>
+                        <span className="loading-text">{currentLoading.message}</span>
+                      </div>
                     )}
-                  </button>
+
+                    {currentError && (
+                      <div className="doc-action-error-pill">
+                        <span className="error-icon">⚠️</span>
+                        <span className="error-text">
+                          {currentError.message}
+                          {currentError.detail ? `: ${currentError.detail}` : ""}
+                        </span>
+                        <button
+                          className="btn-retry-action"
+                          onClick={() => handleActionRetry(file, currentError.action)}
+                        >
+                          ↺ Retry
+                        </button>
+                        <button
+                          className="btn-dismiss-error"
+                          onClick={() => clearActionError(file.id)}
+                          title="Dismiss"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -610,6 +1000,143 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
           uploadId={previewId}
           onClose={() => setPreviewId(null)}
         />
+      )}
+
+      {/* Topic Selection Modal for Flashcards */}
+      {topicModalFile && (
+        <div className="modal-backdrop" onClick={() => !isModalGenerating && setTopicModalFile(null)}>
+          <div className="modal-card topic-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="modal-close-btn"
+              onClick={() => !isModalGenerating && setTopicModalFile(null)}
+              disabled={isModalGenerating}
+              title="Close"
+            >
+              ✕
+            </button>
+
+            <div className="topic-modal-header">
+              <div className="topic-modal-badge">
+                <span>🎴 Flashcard Topic Selector</span>
+              </div>
+              <h3 className="topic-modal-title">Select Topic to Study</h3>
+              <p className="topic-modal-subtitle">
+                Found the following study topics in <strong className="topic-doc-highlight">"{topicModalFile.filename}"</strong>. Select which topic you want to generate cards for:
+              </p>
+            </div>
+
+            <div className="topic-options-grid">
+              {/* Option 1: Entire Document Overview */}
+              <div
+                className={`topic-option-card ${selectedTopic === getDocCleanTopic(topicModalFile) && !customTopicInput ? "topic-option-selected" : ""}`}
+                onClick={() => {
+                  setSelectedTopic(getDocCleanTopic(topicModalFile));
+                  setCustomTopicInput("");
+                }}
+              >
+                <div className="topic-card-radio">
+                  <span className={`radio-dot ${selectedTopic === getDocCleanTopic(topicModalFile) && !customTopicInput ? "active" : ""}`}></span>
+                </div>
+                <div className="topic-card-info">
+                  <span className="topic-card-name">📚 Entire Document (Comprehensive Deck)</span>
+                  <span className="topic-card-hint">Covers all essential terms and summaries across the entire document</span>
+                </div>
+              </div>
+
+              {/* Extracted Specific Topics */}
+              {topicModalList.map((t, idx) => {
+                if (t === getDocCleanTopic(topicModalFile)) return null;
+                const isSelected = selectedTopic === t && !customTopicInput;
+                return (
+                  <div
+                    key={idx}
+                    className={`topic-option-card ${isSelected ? "topic-option-selected" : ""}`}
+                    onClick={() => {
+                      setSelectedTopic(t);
+                      setCustomTopicInput("");
+                    }}
+                  >
+                    <div className="topic-card-radio">
+                      <span className={`radio-dot ${isSelected ? "active" : ""}`}></span>
+                    </div>
+                    <div className="topic-card-info">
+                      <span className="topic-card-name">🎯 {t}</span>
+                      <span className="topic-card-hint">Deep-dive flashcards scoped specifically to this section</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Custom Topic write-in input */}
+            <div className="topic-custom-box">
+              <label className="topic-custom-label">
+                ✏️ Or enter a custom subtopic from this document:
+              </label>
+              <input
+                type="text"
+                className="topic-custom-input"
+                placeholder="e.g. specific theorem, formula, or chapter..."
+                value={customTopicInput}
+                onChange={(e) => setCustomTopicInput(e.target.value)}
+                disabled={isModalGenerating}
+              />
+            </div>
+
+            {/* Options: Count & Difficulty */}
+            <div className="topic-modal-settings">
+              <div className="modal-setting-item">
+                <label>Number of Cards:</label>
+                <select
+                  value={cardCountChoice}
+                  onChange={(e) => setCardCountChoice(Number(e.target.value))}
+                  disabled={isModalGenerating}
+                >
+                  <option value={5}>5 Cards (Quick Review)</option>
+                  <option value={10}>10 Cards (Standard Study)</option>
+                  <option value={15}>15 Cards (Comprehensive Deck)</option>
+                </select>
+              </div>
+
+              <div className="modal-setting-item">
+                <label>Difficulty:</label>
+                <select
+                  value={difficultyChoice}
+                  onChange={(e) => setDifficultyChoice(e.target.value)}
+                  disabled={isModalGenerating}
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="modal-btn-cancel"
+                onClick={() => setTopicModalFile(null)}
+                disabled={isModalGenerating}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn-generate"
+                onClick={handleConfirmGenerateFlashcards}
+                disabled={isModalGenerating || (!selectedTopic && !customTopicInput.trim())}
+              >
+                {isModalGenerating ? (
+                  <>
+                    <span className="mini-action-spinner" style={{ marginRight: "6px" }}></span>
+                    Generating Cards...
+                  </>
+                ) : (
+                  `🎴 Generate ${cardCountChoice} Flashcards`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1152,11 +1679,29 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("documents");
   const [targetDocument, setTargetDocument] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [quizContext, setQuizContext] = useState(null);
+  const [flashcardsContext, setFlashcardsContext] = useState(null);
+  const [roadmapContext, setRoadmapContext] = useState(null);
   const { logout } = useAuth();
 
   const handleAskAboutDocument = (filename) => {
     setTargetDocument(filename);
     setActiveTab("chat");
+  };
+
+  const handleLaunchQuiz = (context) => {
+    setQuizContext(context);
+    setActiveTab("quiz");
+  };
+
+  const handleLaunchFlashcards = (context) => {
+    setFlashcardsContext(context);
+    setActiveTab("flashcards");
+  };
+
+  const handleLaunchRoadmap = (context) => {
+    setRoadmapContext(context);
+    setActiveTab("roadmap");
   };
 
   const handleConfirmLogout = () => {
@@ -1178,6 +1723,9 @@ export default function Dashboard() {
             <DocumentsView
               onAskAboutDocument={handleAskAboutDocument}
               onNavigate={setActiveTab}
+              onLaunchQuiz={handleLaunchQuiz}
+              onLaunchFlashcards={handleLaunchFlashcards}
+              onLaunchRoadmap={handleLaunchRoadmap}
             />
           )}
           {activeTab === "chat" && (
@@ -1186,11 +1734,11 @@ export default function Dashboard() {
               setTargetDocument={setTargetDocument}
             />
           )}
-          {activeTab === "flashcards" && <FlashcardsView />}
-          {activeTab === "quiz" && <QuizView />}
+          {activeTab === "flashcards" && <FlashcardsView initialContext={flashcardsContext} />}
+          {activeTab === "quiz" && <QuizView initialContext={quizContext} />}
           {activeTab === "results" && <QuizResultsView />}
           {activeTab === "roadmap" && (
-            <StudyRoadmapView onNavigate={setActiveTab} />
+            <StudyRoadmapView onNavigate={setActiveTab} initialContext={roadmapContext} />
           )}
           {activeTab === "graph" && (
             <GraphView onNavigate={setActiveTab} />

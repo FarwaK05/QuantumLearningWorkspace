@@ -23,11 +23,11 @@ function SkeletonStep() {
   );
 }
 
-export default function StudyRoadmapView({ onNavigate }) {
+export default function StudyRoadmapView({ onNavigate, initialContext }) {
   const { token } = useAuth();
   const [steps, setSteps] = useState([]);
-  const [subject, setSubject] = useState("Your Personalized Study Roadmap");
-  const [loading, setLoading] = useState(true);
+  const [subject, setSubject] = useState(initialContext?.subject || "Your Personalized Study Roadmap");
+  const [loading, setLoading] = useState(!initialContext?.next_steps);
   const [error, setError] = useState(null);
   const [hasActivity, setHasActivity] = useState(true);
 
@@ -35,6 +35,19 @@ export default function StudyRoadmapView({ onNavigate }) {
 
   useEffect(() => {
     let active = true;
+
+    if (initialContext && Array.isArray(initialContext.next_steps) && initialContext.next_steps.length > 0) {
+      const enriched = initialContext.next_steps.map((item, idx) => ({
+        ...item,
+        step_number: item.step_number ?? idx + 1,
+        accent: PRIORITY_ACCENT[item.priority?.toLowerCase()] ?? "#7c3aed",
+      }));
+      setSteps(enriched);
+      if (initialContext.subject) setSubject(initialContext.subject);
+      setHasActivity(true);
+      setLoading(false);
+      return;
+    }
 
     async function fetchRoadmap() {
       setLoading(true);
