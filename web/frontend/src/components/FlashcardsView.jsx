@@ -84,6 +84,22 @@ export default function FlashcardsView() {
       setIsFlipped(false);
       setCardReviews({});
       setIsCompleted(false);
+
+      try {
+        localStorage.setItem(
+          "studymind_last_activity",
+          JSON.stringify({
+            topic: data.topic || chosenTopic,
+            type: "flashcards",
+            subText: `${data.cards.length} Flashcards session`,
+            targetTab: "flashcards",
+            timestamp: Date.now(),
+          })
+        );
+      } catch (e) {
+        // Ignore localStorage quota errors
+      }
+
       showToast(`Generated ${data.cards.length} flashcards for "${data.topic || chosenTopic}"!`, "success");
     } catch (err) {
       console.error("Flashcards generation error:", err);
