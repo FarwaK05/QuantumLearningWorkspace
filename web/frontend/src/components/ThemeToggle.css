@@ -95,3 +95,92 @@
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme Controls Group — Color Picker + Light/Dark Toggle
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-picker-wrap {
+  position: relative;
+}
+
+.color-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-surface-hover, rgba(124, 58, 237, 0.08));
+  border: 1px solid var(--color-border-subtle, rgba(124, 58, 237, 0.2));
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+}
+
+.color-picker-trigger:hover {
+  background: var(--color-surface-active, rgba(124, 58, 237, 0.16));
+  border-color: var(--color-primary-purple);
+  transform: translateY(-1px);
+}
+
+.color-picker-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  background: var(--color-modal-bg, #16142e);
+  border: 1px solid var(--color-card-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 28px var(--color-shadow);
+  min-width: 180px;
+  animation: colorMenuIn 0.15s ease;
+}
+
+@keyframes colorMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.color-picker-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
+.color-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-swatch-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  padding: 0;
+}
+
+.color-swatch-btn:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch-btn.active {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px var(--color-modal-bg, #16142e), 0 0 0 4px var(--color-primary-purple);
+}
