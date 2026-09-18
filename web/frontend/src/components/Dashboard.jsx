@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
-import { FileText, MessageSquare, Layers, Target, BarChart3, Map, Network, Brain, RefreshCw, BookOpen, X, AlertTriangle, Globe, Clock, CheckCircle2, Search, Send, ChevronDown, RotateCcw } from "lucide-react";
+import { FileText, MessageSquare, Layers, Target, BarChart3, Map, Network, Brain, RefreshCw, BookOpen, X, AlertTriangle, Globe, Clock, CheckCircle2, Search, Send, ChevronDown, RotateCcw, ChevronsLeft, ChevronsRight } from "lucide-react";
 import ProfileView from "./ProfileView.jsx";
 import QuizView from "./QuizView.jsx";
 import QuizResultsView from "./QuizResultsView.jsx";
@@ -22,6 +22,25 @@ import StudentCommandCenter from "./StudentCommandCenter.jsx";
 
 
 function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      const saved = localStorage.getItem("studymind_sidebar_expanded");
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleExpanded = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("studymind_sidebar_expanded", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const { userEmail } = useAuth();
   const getInitialLetter = () => {
     const saved = localStorage.getItem("studymind_user_name");
@@ -49,7 +68,7 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
   ];
 
   return (
-    <aside className="sidebar-nav">
+    <aside className={`sidebar-nav ${expanded ? "expanded" : ""}`}>
       {/* Logo */}
       <div className="sidebar-logo-area">
         <Brain className="logo-icon" size={26} strokeWidth={2.25} />
@@ -65,7 +84,8 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
             title={item.label}
           >
             <span className="nav-icon"><item.icon size={20} strokeWidth={2} /></span>
-            <span className="nav-tooltip">{item.label}</span>
+              <span className="nav-label">{item.label}</span>
+              <span className="nav-tooltip">{item.label}</span>
             {activeTab === item.id && (
               <span className="nav-indicator"></span>
             )}
@@ -73,7 +93,16 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
         ))}
       </nav>
 
-      {/* Bottom: User + Logout */}
+      <button
+          className="sidebar-collapse-btn"
+          onClick={toggleExpanded}
+          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
+          type="button"
+        >
+          {expanded ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
+        </button>
+
+        {/* Bottom: User + Logout */}
       <div className="sidebar-bottom">
         <div
           className={`user-avatar-circle ${activeTab === "profile" || activeTab === "settings" ? "active-profile-avatar" : ""}`}
