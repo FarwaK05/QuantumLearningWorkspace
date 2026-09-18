@@ -4,25 +4,36 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import "./QuizView.css";
 
-export default function QuizView() {
+export default function QuizView({ initialContext }) {
   const { token, handle401 } = useAuth();
   const { showToast } = useToast();
 
   // Quiz Request State
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialContext?.topic || "");
   const [quizType, setQuizType] = useState("mcq");
   const [questionCount, setQuestionCount] = useState(5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
 
   // Quiz Display State
-  const [quizId, setQuizId] = useState("");
-  const [questions, setQuestions] = useState([]);
+  const [quizId, setQuizId] = useState(initialContext?.quizId || "");
+  const [questions, setQuestions] = useState(initialContext?.questions || []);
   const [userAnswers, setUserAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+  useEffect(() => {
+    if (initialContext) {
+      if (initialContext.quizId) setQuizId(initialContext.quizId);
+      if (initialContext.questions && initialContext.questions.length > 0) {
+        setQuestions(initialContext.questions);
+      }
+      if (initialContext.topic) setTopic(initialContext.topic);
+      setUserAnswers({});
+    }
+  }, [initialContext]);
 
   // Handle quiz generation
   const handleGenerateQuiz = async (e) => {

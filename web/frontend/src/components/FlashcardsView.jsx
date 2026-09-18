@@ -16,25 +16,37 @@ const QUICK_TOPICS = [
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-export default function FlashcardsView() {
+export default function FlashcardsView({ initialContext }) {
   const { token, handle401 } = useAuth();
   const { showToast } = useToast();
 
   // Generation Form State
-  const [topicInput, setTopicInput] = useState("");
+  const [topicInput, setTopicInput] = useState(initialContext?.topic || "");
   const [numCards, setNumCards] = useState(5);
   const [difficulty, setDifficulty] = useState("medium");
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   // Flashcards Study Deck State
-  const [currentTopic, setCurrentTopic] = useState("");
-  const [cards, setCards] = useState([]);
+  const [currentTopic, setCurrentTopic] = useState(initialContext?.topic || "");
+  const [cards, setCards] = useState(initialContext?.cards || []);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [cardReviews, setCardReviews] = useState({}); // { [cardId]: 'known' | 'still_learning' }
   const [isSavingReview, setIsSavingReview] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    if (initialContext && Array.isArray(initialContext.cards) && initialContext.cards.length > 0) {
+      setCards(initialContext.cards);
+      setCurrentTopic(initialContext.topic || "Document Study Deck");
+      if (initialContext.topic) setTopicInput(initialContext.topic);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+      setCardReviews({});
+      setIsCompleted(false);
+    }
+  }, [initialContext]);
 
   // Generate Flashcards Handler
   const handleGenerateFlashcards = async (e) => {
