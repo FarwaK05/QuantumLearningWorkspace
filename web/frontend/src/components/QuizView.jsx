@@ -70,6 +70,22 @@ export default function QuizView() {
       setQuizId(data.quiz_id || "");
       setQuestions(data.questions || []);
       setUserAnswers({});
+
+      try {
+        localStorage.setItem(
+          "studymind_last_activity",
+          JSON.stringify({
+            topic: topic.trim(),
+            type: "quiz",
+            subText: `${data.questions?.length || 5} Questions Quiz`,
+            targetTab: "quiz",
+            timestamp: Date.now(),
+          })
+        );
+      } catch (e) {
+        // Ignore localStorage quota errors
+      }
+
       showToast(`Generated ${data.questions?.length || 0} questions!`, "success");
     } catch (err) {
       const errorMsg = err.message || "Failed to generate quiz";

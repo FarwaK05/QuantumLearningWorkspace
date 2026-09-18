@@ -14,6 +14,7 @@ import "./Dashboard.css";
 import DocumentPreviewModal from "./DocumentPreviewModal.jsx";
 import CustomSelect from "./CustomSelect.jsx";
 import KnowledgeGraphView from "./KnowledgeGraphView.jsx";
+import StudentCommandCenter from "./StudentCommandCenter.jsx";
 
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
@@ -23,7 +24,20 @@ import KnowledgeGraphView from "./KnowledgeGraphView.jsx";
 
 function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
   const { userEmail } = useAuth();
-  const initial = userEmail ? userEmail[0].toUpperCase() : "U";
+  const getInitialLetter = () => {
+    const saved = localStorage.getItem("studymind_user_name");
+    if (saved && saved.trim()) return saved.trim()[0].toUpperCase();
+    return userEmail ? userEmail[0].toUpperCase() : "U";
+  };
+  const [initial, setInitial] = useState(getInitialLetter);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setInitial(getInitialLetter());
+    };
+    window.addEventListener("studymind_profile_updated", handleUpdate);
+    return () => window.removeEventListener("studymind_profile_updated", handleUpdate);
+  }, [userEmail]);
 
   const navItems = [
     { id: "documents", icon: FileText, label: "Documents" },
@@ -87,10 +101,24 @@ function SidebarNav({ activeTab, setActiveTab, onRequestLogout }) {
   );
 }
 
-function TopBar({ activeTab }) {
+function TopBar({ activeTab, onNavigate }) {
   const { userEmail } = useAuth();
-  const initial = userEmail ? userEmail[0].toUpperCase() : "U";
-  const displayName = userEmail ? userEmail.split("@")[0] : "Student User";
+  const getInitialName = () => {
+    const saved = localStorage.getItem("studymind_user_name");
+    if (saved && saved.trim()) return saved.trim();
+    return userEmail ? userEmail.split("@")[0] : "Student User";
+  };
+  const [displayName, setDisplayName] = useState(getInitialName);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setDisplayName(getInitialName());
+    };
+    window.addEventListener("studymind_profile_updated", handleUpdate);
+    return () => window.removeEventListener("studymind_profile_updated", handleUpdate);
+  }, [userEmail]);
+
+  const initial = (displayName || userEmail || "U")[0].toUpperCase();
 
   const pageTitles = {
     documents: {
@@ -141,38 +169,20 @@ function TopBar({ activeTab }) {
       </div>
       <div className="top-bar-right" style={{ display: "flex", alignItems: "center", gap: "14px" }}>
         <ThemeToggle />
-        <div
-          className="user-badge"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "8px 14px",
-            background: "var(--color-surface-hover, rgba(124,58,237,0.06))",
-            border: "1px solid var(--color-card-border, rgba(124,58,237,0.15))",
-            borderRadius: "10px",
-          }}
+        <button
+          type="button"
+          className={`user-badge ${activeTab === "profile" || activeTab === "settings" ? "active-tab" : ""}`}
+          onClick={() => onNavigate && onNavigate("profile")}
+          title={`Profile: ${displayName}`}
+          aria-label="User Profile"
         >
-          <div
-            style={{
-              width: "28px",
-              height: "28px",
-              background: "linear-gradient(135deg, #7c3aed, #ec4899)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.72rem",
-              fontWeight: "700",
-              color: "white",
-            }}
-          >
+          <div className="user-badge-avatar">
             {initial}
           </div>
-          <span style={{ fontSize: "0.85rem", fontWeight: "500", color: "var(--color-text-primary)" }}>
+          <span className="user-badge-name">
             {displayName}
           </span>
-        </div>
+        </button>
       </div>
     </header>
   );
@@ -348,6 +358,9 @@ function DocumentsView({ onAskAboutDocument, onNavigate }) {
 
   return (
     <div className="documents-view">
+      {/* Executive Learning Hub — Student Command Center */}
+      <StudentCommandCenter onNavigate={onNavigate} files={files} />
+
       {/* Recommended Next Steps Summary Section */}
       <RecommendedNextSteps onNavigate={onNavigate} />
 
@@ -1158,7 +1171,7 @@ export default function Dashboard() {
         onRequestLogout={() => setShowLogoutModal(true)}
       />
       <div className="main-area">
-        <TopBar activeTab={activeTab} />
+        <TopBar activeTab={activeTab} onNavigate={setActiveTab} />
         <div className="page-content">
           {activeTab === "documents" && (
             <DocumentsView

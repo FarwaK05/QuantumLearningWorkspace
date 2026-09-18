@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, FileText, MessageSquare, Zap, User, Lock, Palette, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Circle, FileText, MessageSquare, Zap, User, Lock, Palette, AlertTriangle, UserCog } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import LogoutModal from "./LogoutModal.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -11,10 +11,20 @@ export default function ProfileView({ onRequestLogout }) {
 
   const [profileData, setProfileData] = useState({
     email: userEmail || "user@example.com",
+    name: localStorage.getItem("studymind_user_name") || (userEmail ? userEmail.split("@")[0] : "Student User"),
+    username: userEmail ? userEmail.split("@")[0] : "student",
     created_at: "July 2026",
     document_count: 0,
   });
   const [loading, setLoading] = useState(true);
+
+  // Profile Edit States
+  const [fullName, setFullName] = useState(
+    localStorage.getItem("studymind_user_name") || (userEmail ? userEmail.split("@")[0] : "Ashar")
+  );
+  const [username, setUsername] = useState(userEmail ? userEmail.split("@")[0] : "ashar");
+  const [profileMsg, setProfileMsg] = useState({ text: "", type: "" });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Form states for password change
   const [oldPassword, setOldPassword] = useState("");
@@ -34,8 +44,8 @@ export default function ProfileView({ onRequestLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
-  const initial = userEmail ? userEmail[0].toUpperCase() : "U";
-  const displayName = userEmail ? userEmail.split("@")[0] : "Student User";
+  const initial = (profileData.name || userEmail || "U")[0].toUpperCase();
+  const displayName = profileData.name || (userEmail ? userEmail.split("@")[0] : "Student User");
 
   const getLocalQuestionCount = () => {
     try {
@@ -88,18 +98,82 @@ export default function ProfileView({ onRequestLogout }) {
             ? meData.question_count
             : getLocalQuestionCount();
 
+        const currentName =
+          meData?.name ||
+          localStorage.getItem("studymind_user_name") ||
+          (userEmail ? userEmail.split("@")[0] : "Ashar");
+        const currentUsername =
+          meData?.username ||
+          (userEmail ? userEmail.split("@")[0] : "ashar");
+
         setProfileData({
           email: meData?.email || userEmail || "user@example.com",
+          name: currentName,
+          username: currentUsername,
           created_at: meData?.created_at || "August 2026",
           document_count: liveCount,
           question_count: liveQuestions,
         });
+        setFullName(currentName);
+        setUsername(currentUsername);
       })
       .catch(() => {})
       .finally(() => {
         setLoading(false);
       });
   }, [token, userEmail]);
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileMsg({ text: "", type: "" });
+
+    if (!fullName.trim()) {
+      setProfileMsg({ text: "Display name cannot be empty.", type: "error" });
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch(`${API_BASE}/update-profile`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: fullName.trim(),
+          username: username.trim() || undefined,
+        }),
+      });
+
+      if (handle401(res)) return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        setProfileMsg({ text: data.detail || "Failed to update profile.", type: "error" });
+        return;
+      }
+
+      const savedName = data.name || fullName.trim();
+      const savedUser = data.username || username.trim();
+
+      setProfileData((prev) => ({
+        ...prev,
+        name: savedName,
+        username: savedUser,
+      }));
+      setFullName(savedName);
+      setUsername(savedUser);
+      localStorage.setItem("studymind_user_name", savedName);
+
+      setProfileMsg({ text: "✓ Display name updated successfully!", type: "success" });
+      window.dispatchEvent(new Event("studymind_profile_updated"));
+    } catch (err) {
+      setProfileMsg({ text: err.message || "Failed to update profile.", type: "error" });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // Password Requirements Checking
   const hasLength = newPassword.length >= 6;
@@ -241,6 +315,14 @@ export default function ProfileView({ onRequestLogout }) {
         <div className="profile-section-card">
           <h3><User size={16} style={{ verticalAlign: "middle", marginRight: "6px" }} />Account Information</h3>
           <div className="info-row">
+            <span className="info-label">Display Name</span>
+            <span className="info-value">{profileData.name || "Student User"}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Username</span>
+            <span className="info-value">@{profileData.username || "student"}</span>
+          </div>
+          <div className="info-row">
             <span className="info-label">Email</span>
             <span className="info-value">{profileData.email}</span>
           </div>
@@ -260,9 +342,59 @@ export default function ProfileView({ onRequestLogout }) {
           </div>
         </div>
 
-        {/* Change Password Form Card */}
+        {/* Edit Profile & Display Name Card */}
         <div className="profile-section-card">
-          <h3><Lock size={16} style={{ verticalAlign: "middle", marginRight: "6px" }} />Change Password</h3>
+          <h3><UserCog size={16} style={{ verticalAlign: "middle", marginRight: "6px" }} />Edit Profile & Display Name</h3>
+          <p className="profile-edit-subtext">
+            Change your display name and username. These will be visible on your Dashboard, greetings, and AI study sessions.
+          </p>
+          <form onSubmit={handleProfileUpdate} className="profile-edit-form">
+            <div className="form-group">
+              <label className="form-label">Display Name / Full Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Ashar or Muhammad Ashar"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Username</label>
+              <div className="username-input-wrapper">
+                <span className="username-prefix">@</span>
+                <input
+                  type="text"
+                  className="form-input username-field"
+                  placeholder="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ""))}
+                  maxLength={30}
+                />
+              </div>
+            </div>
+
+            {profileMsg.text && (
+              <div className={`profile-status-msg ${profileMsg.type}`}>
+                {profileMsg.text}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="save-profile-btn"
+              disabled={isSavingProfile}
+            >
+              {isSavingProfile ? "Saving..." : "Save Changes"}
+            </button>
+          </form>
+        </div>
+
+        {/* Change Password Form Card */}
+        <div className="profile-section-card full-width">
+          <h3>🔒 Change Password</h3>
           <form onSubmit={handlePasswordSubmit} className="change-pw-form">
             {/* Old Password */}
             <div className="form-group">
