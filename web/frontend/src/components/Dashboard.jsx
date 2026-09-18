@@ -6,7 +6,6 @@ import ProfileView from "./ProfileView.jsx";
 import QuizView from "./QuizView.jsx";
 import QuizResultsView from "./QuizResultsView.jsx";
 import FlashcardsView from "./FlashcardsView.jsx";
-import RecommendedNextSteps from "./RecommendedNextSteps.jsx";
 import StudyRoadmapView from "./StudyRoadmapView.jsx";
 import LogoutModal from "./LogoutModal.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -654,10 +653,7 @@ function DocumentsView({
       {/* Executive Learning Hub — Student Command Center */}
       <StudentCommandCenter onNavigate={onNavigate} files={files} />
 
-      {/* Recommended Next Steps Summary Section */}
-      <RecommendedNextSteps onNavigate={onNavigate} />
-
-      {/* Upload Card */}
+            {/* Upload Card */}
       <div className="upload-card">
         <h3>Upload Document</h3>
         <p className="upload-subtitle">Add PDFs, documents, or lecture notes to your knowledge base</p>
