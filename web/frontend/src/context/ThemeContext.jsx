@@ -3,11 +3,11 @@
 const ThemeContext = createContext();
 
 export const COLOR_THEMES = [
-  { id: "violet", label: "Violet", swatch: "linear-gradient(135deg, #7c3aed, #2563eb)" },
-  { id: "ocean", label: "Ocean", swatch: "linear-gradient(135deg, #0ea5e9, #2563eb)" },
-  { id: "emerald", label: "Emerald", swatch: "linear-gradient(135deg, #10b981, #0d9488)" },
-  { id: "rose", label: "Rose", swatch: "linear-gradient(135deg, #f43f5e, #e11d48)" },
-  { id: "amber", label: "Amber", swatch: "linear-gradient(135deg, #f59e0b, #ea580c)" },
+  { id: "violet", label: "Violet", caption: "Purple + blue glow", swatch: "linear-gradient(135deg, #7c3aed, #2563eb)" },
+  { id: "ocean", label: "Ocean", caption: "Sky blue + cyan", swatch: "linear-gradient(135deg, #0ea5e9, #2563eb)" },
+  { id: "emerald", label: "Emerald", caption: "Green + teal", swatch: "linear-gradient(135deg, #10b981, #0d9488)" },
+  { id: "rose", label: "Rose", caption: "Pink + crimson", swatch: "linear-gradient(135deg, #f43f5e, #e11d48)" },
+  { id: "amber", label: "Amber", caption: "Gold + orange", swatch: "linear-gradient(135deg, #f59e0b, #ea580c)" },
 ];
 
 export function ThemeProvider({ children }) {
