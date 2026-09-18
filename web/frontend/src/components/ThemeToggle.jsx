@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect } from "react";
 import { useTheme, COLOR_THEMES } from "../context/ThemeContext.jsx";
-import { Palette } from "lucide-react";
+import { Palette, Check } from "lucide-react";
 import "./ThemeToggle.css";
 
 export default function ThemeToggle({ showLabel = false, className = "" }) {
@@ -34,19 +34,24 @@ export default function ThemeToggle({ showLabel = false, className = "" }) {
         {pickerOpen && (
           <div className="color-picker-menu">
             <span className="color-picker-label">Accent Color</span>
-            <div className="color-swatch-row">
+            <div className="color-option-list">
               {COLOR_THEMES.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  className={`color-swatch-btn ${colorTheme === c.id ? "active" : ""}`}
-                  style={{ background: c.swatch }}
-                  title={c.label}
+                  className={`color-option-row ${colorTheme === c.id ? "active" : ""}`}
                   onClick={() => {
                     setColorTheme(c.id);
                     setPickerOpen(false);
                   }}
-                />
+                >
+                  <span className="color-option-dot" style={{ background: c.swatch }} />
+                  <span className="color-option-text">
+                    <span className="color-option-name">{c.label}</span>
+                    <span className="color-option-caption">{c.caption}</span>
+                  </span>
+                  {colorTheme === c.id && <Check size={16} className="color-option-check" />}
+                </button>
               ))}
             </div>
           </div>
